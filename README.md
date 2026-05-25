@@ -1,13 +1,13 @@
 # BarBurrito Payroll
 
-A clean, minimal payroll calculator for BarBurrito locations. Upload your Excel schedule, process hours, and generate PDF reports with cash pay slips.
+A clean, minimal payroll calculator for BarBurrito locations. Upload your Excel schedule, process hours, and generate PDF reports.
 
 ## Features
 
 - **Multi-location** - Toggle between Brampton and Milton with separate employee lists and settings
 - **Employee management** - Add, edit, delete employees with SIN hour limits and company assignments
 - **Excel processing** - Upload .xlsx schedule files, auto-detect pay period
-- **PDF reports** - Summary table + individual cash pay slips with coin calculations
+- **PDF reports** - Summary table with totals and employee breakdown
 - **Email drafts** - Auto-generated email with SIN hours per employee, grouped by company
 - **CSV import/export** - Bulk manage employees via CSV
 - **Data backup** - Export all settings and employee data as JSON
@@ -23,10 +23,10 @@ A clean, minimal payroll calculator for BarBurrito locations. Upload your Excel 
 
 ## Pay Rates
 
-| Location | SIN Rate | Cash Rate |
-|----------|----------|-----------|
-| Brampton | $17.55/hr | $12.00/hr |
-| Milton   | $17.60/hr | $12.00/hr |
+| Location | SIN Rate |
+|----------|----------|
+| Brampton | $17.55/hr |
+| Milton   | $17.60/hr |
 
 Rates can be changed in the Settings tab.
 
