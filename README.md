@@ -23,13 +23,6 @@ A clean, minimal payroll tool for BarBurrito locations. Upload Excel schedules, 
 5. Review the preview, then generate a **PDF** or copy the **Email**
 6. Go to **PDF Splitter** tab to split multi-page payroll PDFs into individual employee payslips
 
-## Pay Rates
-
-| Location | SIN Rate |
-|----------|----------|
-| Brampton | $17.55/hr |
-| Milton   | $17.60/hr |
-
 Rates can be changed in the Settings tab.
 
 ## Tech Stack
