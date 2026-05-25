@@ -8,15 +8,17 @@
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <script>
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: { sans: ['Inter', 'sans-serif'] },
-          colors: {
-            brand: { 50:'#fef3f2', 100:'#fee4e2', 200:'#fecdc9', 300:'#fcaaa4', 400:'#f87171', 500:'#ef4444', 600:'#dc2626', 700:'#b91c1c', 800:'#991b1b', 900:'#7f1d1d' },
-          }
         }
       }
     }
@@ -57,17 +59,16 @@
       </div>
 
       <!-- Tabs -->
-      <nav class="flex gap-6 border-b border-gray-200">
-        <button onclick="showTab('payroll')" class="tab-active pb-3 text-sm font-medium transition-colors" data-tab="payroll">Payroll</button>
-        <button onclick="showTab('employees')" class="tab-inactive pb-3 text-sm font-medium transition-colors" data-tab="employees">Employees</button>
-        <button onclick="showTab('settings')" class="tab-inactive pb-3 text-sm font-medium transition-colors" data-tab="settings">Settings</button>
+      <nav class="flex gap-6 border-b border-gray-200 overflow-x-auto">
+        <button onclick="showTab('payroll')" class="tab-active pb-3 text-sm font-medium transition-colors whitespace-nowrap" data-tab="payroll">Payroll</button>
+        <button onclick="showTab('employees')" class="tab-inactive pb-3 text-sm font-medium transition-colors whitespace-nowrap" data-tab="employees">Employees</button>
+        <button onclick="showTab('splitter')" class="tab-inactive pb-3 text-sm font-medium transition-colors whitespace-nowrap" data-tab="splitter">PDF Splitter</button>
+        <button onclick="showTab('settings')" class="tab-inactive pb-3 text-sm font-medium transition-colors whitespace-nowrap" data-tab="settings">Settings</button>
       </nav>
     </header>
 
     <!-- ==================== PAYROLL TAB ==================== -->
     <div id="tab-payroll" class="fade-in space-y-5">
-
-      <!-- Upload Card -->
       <div class="bg-white rounded-xl border border-gray-200 p-5">
         <label for="file-input" class="block cursor-pointer">
           <div class="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center hover:border-gray-400 hover:bg-gray-50 transition-all" id="drop-zone">
@@ -77,7 +78,6 @@
           </div>
           <input id="file-input" type="file" class="hidden" accept=".xlsx" />
         </label>
-
         <div class="flex items-center justify-between mt-4">
           <div>
             <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Pay Period</p>
@@ -91,7 +91,6 @@
         </div>
       </div>
 
-      <!-- Preview Table -->
       <div id="preview-card" class="bg-white rounded-xl border border-gray-200 p-5 hidden">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-gray-900">Preview</h3>
@@ -119,7 +118,6 @@
         </div>
       </div>
 
-      <!-- Email Preview -->
       <div id="email-card" class="bg-white rounded-xl border border-gray-200 p-5 hidden">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">Email Draft</h3>
         <pre class="text-xs text-gray-600 bg-gray-50 rounded-lg p-4 whitespace-pre-wrap border border-gray-100 font-mono leading-relaxed" id="email-body"></pre>
@@ -128,33 +126,60 @@
 
     <!-- ==================== EMPLOYEES TAB ==================== -->
     <div id="tab-employees" class="fade-in hidden space-y-5">
-
-      <!-- Add Employee -->
       <div class="bg-white rounded-xl border border-gray-200 p-5">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-gray-900">Employee Master List</h3>
           <span class="text-xs text-gray-400" id="total-employees">0 employees</span>
         </div>
-
-        <!-- Add form -->
         <div class="flex gap-2 mb-4">
           <input id="new-name" type="text" placeholder="Name (e.g. Kaur, Gurleen)" class="flex-1 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
           <input id="new-hours" type="number" placeholder="SIN hrs" value="0" class="w-24 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
           <select id="new-company" class="w-48 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0"></select>
           <button onclick="addEmployee()" class="px-3 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-black transition-colors whitespace-nowrap">+ Add</button>
         </div>
-
-        <!-- Employee list -->
         <div id="employee-list" class="space-y-2 max-h-[480px] overflow-y-auto custom-scrollbar"></div>
       </div>
-
-      <!-- Bulk actions -->
       <div class="flex gap-2">
         <button onclick="exportEmployees()" class="px-3 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Export CSV</button>
         <label class="px-3 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
           Import CSV
           <input type="file" accept=".csv" class="hidden" onchange="importEmployees(event)" />
         </label>
+      </div>
+    </div>
+
+    <!-- ==================== PDF SPLITTER TAB ==================== -->
+    <div id="tab-splitter" class="fade-in hidden space-y-5">
+
+      <!-- Upload -->
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <label for="pdf-input" class="block cursor-pointer">
+          <div class="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center hover:border-gray-400 hover:bg-gray-50 transition-all" id="pdf-drop-zone">
+            <svg class="w-8 h-8 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <p class="text-sm text-gray-500" id="pdf-file-label">Drop PDF payslips or click to browse</p>
+            <p class="text-xs text-gray-300 mt-1">Multi-page payroll PDFs - auto-detects employees per page</p>
+          </div>
+          <input id="pdf-input" type="file" class="hidden" accept=".pdf" multiple />
+        </label>
+        <div id="pdf-status" class="text-xs text-gray-400 mt-3 text-center"></div>
+      </div>
+
+      <!-- Detected Pages -->
+      <div id="splitter-results" class="hidden space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-semibold text-gray-900">Detected Pages</h3>
+            <p class="text-xs text-gray-400" id="splitter-summary"></p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="splitterRescan()" class="px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Re-scan</button>
+            <button onclick="splitterReset()" class="px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">New files</button>
+          </div>
+        </div>
+        <div id="splitter-pages"></div>
+        <div class="flex justify-center">
+          <button onclick="splitterDownloadAll()" id="btn-split-all" class="px-5 py-2.5 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-black transition-colors">Download All as ZIP</button>
+        </div>
       </div>
     </div>
 
@@ -173,13 +198,11 @@
           </div>
         </div>
       </div>
-
       <div class="bg-white rounded-xl border border-gray-200 p-5">
         <h3 class="text-sm font-semibold text-gray-900 mb-4">Company Names</h3>
         <div id="company-list" class="space-y-2"></div>
         <button onclick="addCompany()" class="mt-3 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors">+ Add company</button>
       </div>
-
       <div class="bg-white rounded-xl border border-gray-200 p-5">
         <h3 class="text-sm font-semibold text-gray-900 mb-4">Email Defaults</h3>
         <div class="space-y-3 max-w-sm">
@@ -197,7 +220,6 @@
           </div>
         </div>
       </div>
-
       <button onclick="saveSettings()" class="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-black transition-colors">Save Settings</button>
     </div>
 
@@ -212,14 +234,10 @@
     // ============================================================
     const LOCATIONS = {
       brampton: {
-        label: 'Brampton, ON',
-        name: 'Brampton',
-        sinRate: 17.55,
-        cashRate: 12.00,
+        label: 'Brampton, ON', name: 'Brampton',
+        sinRate: 17.55, cashRate: 12.00,
         companies: ['2619959 Ontario Inc.', 'Ganpati Int.'],
-        emailTo: 'Pirthpal Ji',
-        emailFrom: 'Abhinav Manocha',
-        locationLabel: 'Quarry Edge',
+        emailTo: 'Pirthpal Ji', emailFrom: 'Abhinav Manocha', locationLabel: 'Quarry Edge',
         employees: {
           'Aneja, Madhur':    { hours: 70, group: '2619959 Ontario Inc.' },
           'Arora, Kashish':   { hours: 60, group: '2619959 Ontario Inc.' },
@@ -232,14 +250,10 @@
         }
       },
       milton: {
-        label: 'Milton, ON',
-        name: 'Milton',
-        sinRate: 17.60,
-        cashRate: 12.00,
+        label: 'Milton, ON', name: 'Milton',
+        sinRate: 17.60, cashRate: 12.00,
         companies: ['2619959 Ontario Inc.'],
-        emailTo: '',
-        emailFrom: 'Abhinav Manocha',
-        locationLabel: 'Milton',
+        emailTo: '', emailFrom: 'Abhinav Manocha', locationLabel: 'Milton',
         employees: {
           'Kaur, Baldish':    { hours: 60, group: '2619959 Ontario Inc.' },
           'Kaur, Gurleen':    { hours: 61, group: '2619959 Ontario Inc.' },
@@ -261,25 +275,13 @@
     let currentPeriod = '';
 
     function defaultState() {
-      return {
-        lastLocation: 'brampton',
-        locations: JSON.parse(JSON.stringify(LOCATIONS))
-      };
+      return { lastLocation: 'brampton', locations: JSON.parse(JSON.stringify(LOCATIONS)) };
     }
-
     function loadState() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch(e) {}
+      try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return JSON.parse(raw); } catch(e) {}
       return defaultState();
     }
-
-    function saveState() {
-      state.lastLocation = currentLocation;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-
+    function saveState() { state.lastLocation = currentLocation; localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     function loc() { return state.locations[currentLocation]; }
 
     // ============================================================
@@ -289,7 +291,7 @@
       document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
       document.getElementById('tab-' + tab).classList.remove('hidden');
       document.querySelectorAll('[data-tab]').forEach(btn => {
-        btn.className = btn.dataset.tab === tab ? 'tab-active pb-3 text-sm font-medium transition-colors' : 'tab-inactive pb-3 text-sm font-medium transition-colors';
+        btn.className = btn.dataset.tab === tab ? 'tab-active pb-3 text-sm font-medium transition-colors whitespace-nowrap' : 'tab-inactive pb-3 text-sm font-medium transition-colors whitespace-nowrap';
       });
       if (tab === 'employees') renderEmployees();
       if (tab === 'settings') renderSettings();
@@ -300,8 +302,7 @@
       currentLocation = toggle.checked ? 'milton' : 'brampton';
       document.getElementById('location-label').textContent = loc().label;
       document.getElementById('location-name').textContent = loc().name;
-      processedData = [];
-      currentPeriod = '';
+      processedData = []; currentPeriod = '';
       resetPayrollUI();
       saveState();
     }
@@ -324,60 +325,38 @@
       const el = document.getElementById('toast');
       el.textContent = msg;
       el.className = `fixed top-5 right-5 px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow-lg transition-all duration-300 z-50 ${type === 'success' ? 'bg-gray-900' : 'bg-red-500'}`;
-      el.style.opacity = '1';
-      el.style.transform = 'translateY(0)';
-      el.classList.remove('pointer-events-none');
-      setTimeout(() => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(-8px)';
-        el.classList.add('pointer-events-none');
-      }, 2500);
+      el.style.opacity = '1'; el.style.transform = 'translateY(0)'; el.classList.remove('pointer-events-none');
+      setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(-8px)'; el.classList.add('pointer-events-none'); }, 2500);
     }
 
     // ============================================================
     // EMPLOYEE MANAGEMENT
     // ============================================================
     function normalizeName(n) { return n.toLowerCase().replace(/[^a-z]/g, ''); }
-
     function getEmployeeConfig(name) {
       const norm = normalizeName(name);
       const entry = Object.entries(loc().employees).find(([k]) => normalizeName(k) === norm);
       return entry ? { ...entry[1], matchedName: entry[0] } : null;
     }
-
     function renderEmployees() {
       const list = document.getElementById('employee-list');
       const companies = loc().companies;
       const employees = loc().employees;
       const keys = Object.keys(employees).sort();
-
       document.getElementById('total-employees').textContent = `${keys.length} employees`;
-
-      // Populate company dropdown in add form
-      const sel = document.getElementById('new-company');
-      sel.innerHTML = companies.map(c => `<option value="${c}">${c}</option>`).join('');
-
+      document.getElementById('new-company').innerHTML = companies.map(c => `<option value="${c}">${c}</option>`).join('');
       list.innerHTML = '';
       keys.forEach(name => {
         const data = employees[name];
         const div = document.createElement('div');
         div.className = 'flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group';
         div.innerHTML = `
-          <div class="flex-1 min-w-0">
-            <input type="text" value="${name}" data-original="${name}" class="w-full text-sm font-medium text-gray-900 bg-transparent border-0 p-0 focus:ring-0 focus:outline-none emp-name" />
-          </div>
+          <div class="flex-1 min-w-0"><input type="text" value="${name}" data-original="${name}" class="w-full text-sm font-medium text-gray-900 bg-transparent border-0 p-0 focus:ring-0 focus:outline-none emp-name" /></div>
           <input type="number" value="${data.hours}" class="w-20 text-sm text-right bg-transparent border-0 p-0 focus:ring-0 focus:outline-none emp-hours" title="SIN limit" />
-          <select class="text-sm bg-transparent border-0 p-0 focus:ring-0 focus:outline-none text-gray-500 emp-group">
-            ${companies.map(c => `<option value="${c}" ${data.group === c ? 'selected' : ''}>${c}</option>`).join('')}
-          </select>
-          <button onclick="removeEmployee('${name}')" class="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 ml-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        `;
+          <select class="text-sm bg-transparent border-0 p-0 focus:ring-0 focus:outline-none text-gray-500 emp-group">${companies.map(c => `<option value="${c}" ${data.group === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
+          <button onclick="removeEmployee('${name}')" class="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 ml-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
         list.appendChild(div);
       });
-
-      // Save on blur
       list.querySelectorAll('.emp-name, .emp-hours, .emp-group').forEach(input => {
         input.addEventListener('blur', () => {
           const row = input.closest('.flex');
@@ -385,62 +364,39 @@
           const newName = row.querySelector('.emp-name').value.trim();
           const hours = parseFloat(row.querySelector('.emp-hours').value) || 0;
           const group = row.querySelector('.emp-group').value;
-
           if (!newName) return;
-          if (newName !== origName) {
-            delete loc().employees[origName];
-          }
+          if (newName !== origName) delete loc().employees[origName];
           loc().employees[newName] = { hours, group };
-          saveState();
-          renderEmployees();
+          saveState(); renderEmployees();
         });
       });
     }
-
     function addEmployee() {
       const name = document.getElementById('new-name').value.trim();
       const hours = parseFloat(document.getElementById('new-hours').value) || 0;
       const group = document.getElementById('new-company').value;
       if (!name) { toast('Enter a name', 'error'); return; }
-      loc().employees[name] = { hours, group };
-      saveState();
-      document.getElementById('new-name').value = '';
-      document.getElementById('new-hours').value = '0';
-      renderEmployees();
-      toast(`${name} added`);
+      loc().employees[name] = { hours, group }; saveState();
+      document.getElementById('new-name').value = ''; document.getElementById('new-hours').value = '0';
+      renderEmployees(); toast(`${name} added`);
     }
-
-    function removeEmployee(name) {
-      delete loc().employees[name];
-      saveState();
-      renderEmployees();
-    }
-
+    function removeEmployee(name) { delete loc().employees[name]; saveState(); renderEmployees(); }
     function exportEmployees() {
       const rows = [['Name','SIN Hours','Company']];
       Object.entries(loc().employees).forEach(([n, d]) => rows.push([n, d.hours, d.group]));
-      const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-      downloadFile(csv, `employees_${currentLocation}.csv`, 'text/csv');
+      downloadFile(rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n'), `employees_${currentLocation}.csv`, 'text/csv');
       toast('Exported');
     }
-
     function importEmployees(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+      const file = event.target.files[0]; if (!file) return;
       const reader = new FileReader();
       reader.onload = (e) => {
-        const lines = e.target.result.split('\n').filter(l => l.trim());
-        let count = 0;
+        const lines = e.target.result.split('\n').filter(l => l.trim()); let count = 0;
         lines.slice(1).forEach(line => {
           const parts = line.split(',').map(s => s.replace(/"/g, '').trim());
-          if (parts[0] && parts[1]) {
-            loc().employees[parts[0]] = { hours: parseInt(parts[1]) || 0, group: parts[2] || loc().companies[0] };
-            count++;
-          }
+          if (parts[0] && parts[1]) { loc().employees[parts[0]] = { hours: parseInt(parts[1]) || 0, group: parts[2] || loc().companies[0] }; count++; }
         });
-        saveState();
-        renderEmployees();
-        toast(`Imported ${count} employees`);
+        saveState(); renderEmployees(); toast(`Imported ${count} employees`);
       };
       reader.readAsText(file);
     }
@@ -455,38 +411,21 @@
       document.getElementById('cfg-email-to').value = l.emailTo;
       document.getElementById('cfg-email-from').value = l.emailFrom;
       document.getElementById('cfg-location-label').value = l.locationLabel;
-
-      const list = document.getElementById('company-list');
-      list.innerHTML = '';
+      const list = document.getElementById('company-list'); list.innerHTML = '';
       l.companies.forEach((c, i) => {
-        const div = document.createElement('div');
-        div.className = 'flex items-center gap-2';
-        div.innerHTML = `
-          <input type="text" value="${c}" class="flex-1 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0 company-input" data-index="${i}" />
-          <button onclick="removeCompany(${i})" class="text-gray-300 hover:text-red-500 transition-colors px-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        `;
+        const div = document.createElement('div'); div.className = 'flex items-center gap-2';
+        div.innerHTML = `<input type="text" value="${c}" class="flex-1 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0 company-input" data-index="${i}" /><button onclick="removeCompany(${i})" class="text-gray-300 hover:text-red-500 transition-colors px-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
         list.appendChild(div);
       });
     }
-
     function addCompany() {
       const name = prompt('Company name:');
-      if (name && name.trim()) {
-        loc().companies.push(name.trim());
-        saveState();
-        renderSettings();
-      }
+      if (name && name.trim()) { loc().companies.push(name.trim()); saveState(); renderSettings(); }
     }
-
     function removeCompany(index) {
       if (loc().companies.length <= 1) { toast('Need at least one company', 'error'); return; }
-      loc().companies.splice(index, 1);
-      saveState();
-      renderSettings();
+      loc().companies.splice(index, 1); saveState(); renderSettings();
     }
-
     function saveSettings() {
       const l = loc();
       l.sinRate = parseFloat(document.getElementById('cfg-sin-rate').value) || l.sinRate;
@@ -494,45 +433,26 @@
       l.emailTo = document.getElementById('cfg-email-to').value;
       l.emailFrom = document.getElementById('cfg-email-from').value;
       l.locationLabel = document.getElementById('cfg-location-label').value;
-
-      // Save company names from inputs
-      document.querySelectorAll('.company-input').forEach(input => {
-        const idx = parseInt(input.dataset.index);
-        l.companies[idx] = input.value.trim();
-      });
-
-      saveState();
-      toast('Settings saved');
+      document.querySelectorAll('.company-input').forEach(input => { l.companies[parseInt(input.dataset.index)] = input.value.trim(); });
+      saveState(); toast('Settings saved');
     }
 
     // ============================================================
     // PAYROLL PROCESSING
     // ============================================================
     let selectedFile = null;
-
     document.getElementById('file-input').addEventListener('change', (e) => {
       selectedFile = e.target.files[0];
-      if (selectedFile) {
-        document.getElementById('file-label').textContent = selectedFile.name;
-        document.getElementById('btn-process').disabled = false;
-      }
+      if (selectedFile) { document.getElementById('file-label').textContent = selectedFile.name; document.getElementById('btn-process').disabled = false; }
     });
-
-    // Drag & drop
     const dropZone = document.getElementById('drop-zone');
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-gray-400', 'bg-gray-50'); });
     dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('border-gray-400', 'bg-gray-50'); });
     dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('border-gray-400', 'bg-gray-50');
+      e.preventDefault(); dropZone.classList.remove('border-gray-400', 'bg-gray-50');
       const file = e.dataTransfer.files[0];
-      if (file && file.name.endsWith('.xlsx')) {
-        selectedFile = file;
-        document.getElementById('file-label').textContent = file.name;
-        document.getElementById('btn-process').disabled = false;
-      } else {
-        toast('Please drop an .xlsx file', 'error');
-      }
+      if (file && file.name.endsWith('.xlsx')) { selectedFile = file; document.getElementById('file-label').textContent = file.name; document.getElementById('btn-process').disabled = false; }
+      else toast('Please drop an .xlsx file', 'error');
     });
 
     function processFile() {
@@ -543,14 +463,11 @@
           const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const raw = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
           currentPeriod = raw[1]?.[0] || 'Unknown Period';
           const headers = raw[3] || [];
           const nameIdx = headers.findIndex(h => h?.toLowerCase().includes('name'));
           const hoursIdx = headers.findIndex(h => h?.toLowerCase().includes('total hours'));
-
           if (nameIdx === -1 || hoursIdx === -1) throw new Error('Could not find Name/Total Hours columns in row 4.');
-
           processedData = [];
           for (let i = 4; i < raw.length; i++) {
             const row = raw[i];
@@ -558,30 +475,20 @@
             if (!rawName || rawName === 'Total' || rawName.toLowerCase() === 'all') continue;
             const hours = parseFloat(row[hoursIdx]) || 0;
             if (hours === 0) continue;
-
             const empConf = getEmployeeConfig(rawName);
             const limit = empConf ? empConf.hours : 0;
             const group = empConf ? empConf.group : loc().companies[0];
             const sinHours = Math.min(hours, limit);
             const cashHours = Math.max(0, hours - limit);
-
-            processedData.push({
-              name: rawName, hours, sinHours, cashHours,
-              sinPay: sinHours * loc().sinRate,
-              cashPay: cashHours * loc().cashRate,
-              isMissing: !empConf, group
-            });
+            processedData.push({ name: rawName, hours, sinHours, cashHours, sinPay: sinHours * loc().sinRate, cashPay: cashHours * loc().cashRate, isMissing: !empConf, group });
           }
-
           if (!processedData.length) throw new Error('No employee data found.');
           renderPreview();
           document.getElementById('pay-period').textContent = currentPeriod;
           document.getElementById('btn-pdf').disabled = false;
           document.getElementById('btn-email').disabled = false;
           toast(`Processed ${processedData.length} employees`);
-        } catch (err) {
-          toast(err.message, 'error');
-        }
+        } catch (err) { toast(err.message, 'error'); }
       };
       reader.readAsArrayBuffer(selectedFile);
     }
@@ -593,11 +500,9 @@
       const body = document.getElementById('preview-body');
       const foot = document.getElementById('preview-foot');
       card.classList.remove('hidden');
-
       document.getElementById('emp-count').textContent = `${processedData.length} employees`;
       let totals = { hours: 0, sinHrs: 0, cashHrs: 0, cashPay: 0, coins: 0 };
       let hasWarnings = false;
-
       body.innerHTML = '';
       processedData.forEach((emp, idx) => {
         if (emp.isMissing) hasWarnings = true;
@@ -611,57 +516,25 @@
           <td class="py-2.5 text-right text-emerald-600">${emp.cashHours.toFixed(2)}</td>
           <td class="py-2.5 text-right font-medium text-gray-900">$${emp.cashPay.toFixed(2)}</td>
           <td class="py-2.5 text-right text-blue-500">$${coins.toFixed(2)}</td>
-          <td class="py-2.5 text-right">
-            <button onclick="removeEmp(${idx})" class="text-gray-300 hover:text-red-500 transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </td>
-        `;
+          <td class="py-2.5 text-right"><button onclick="removeEmp(${idx})" class="text-gray-300 hover:text-red-500 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></td>`;
         body.appendChild(tr);
-        totals.hours += emp.hours;
-        totals.sinHrs += emp.sinHours;
-        totals.cashHrs += emp.cashHours;
-        totals.cashPay += emp.cashPay;
-        totals.coins += coins;
+        totals.hours += emp.hours; totals.sinHrs += emp.sinHours; totals.cashHrs += emp.cashHours; totals.cashPay += emp.cashPay; totals.coins += coins;
       });
-
-      foot.innerHTML = `
-        <td class="py-2.5 text-xs uppercase text-gray-400">Total</td>
-        <td class="py-2.5 text-right text-xs">${totals.hours.toFixed(2)}</td>
-        <td class="py-2.5 text-right text-xs text-blue-600">${totals.sinHrs.toFixed(2)}</td>
-        <td class="py-2.5 text-right text-xs text-emerald-600">${totals.cashHrs.toFixed(2)}</td>
-        <td class="py-2.5 text-right text-xs">$${totals.cashPay.toFixed(2)}</td>
-        <td class="py-2.5 text-right text-xs text-blue-500">$${totals.coins.toFixed(2)}</td>
-        <td></td>
-      `;
-
+      foot.innerHTML = `<td class="py-2.5 text-xs uppercase text-gray-400">Total</td><td class="py-2.5 text-right text-xs">${totals.hours.toFixed(2)}</td><td class="py-2.5 text-right text-xs text-blue-600">${totals.sinHrs.toFixed(2)}</td><td class="py-2.5 text-right text-xs text-emerald-600">${totals.cashHrs.toFixed(2)}</td><td class="py-2.5 text-right text-xs">$${totals.cashPay.toFixed(2)}</td><td class="py-2.5 text-right text-xs text-blue-500">$${totals.coins.toFixed(2)}</td><td></td>`;
       document.getElementById('warning-box').classList.toggle('hidden', !hasWarnings);
     }
-
-    function removeEmp(index) {
-      processedData.splice(index, 1);
-      renderPreview();
-    }
+    function removeEmp(index) { processedData.splice(index, 1); renderPreview(); }
 
     // ============================================================
     // EMAIL
     // ============================================================
     function copyEmail() {
       const l = loc();
-      const emailRows = {};
-      l.companies.forEach(c => emailRows[c] = []);
-      processedData.forEach(emp => {
-        emailRows[emp.group]?.push(`${emp.name.split(',').reverse().join(' ').trim()}: ${emp.sinHours.toFixed(2)} hours`);
-      });
-
+      const emailRows = {}; l.companies.forEach(c => emailRows[c] = []);
+      processedData.forEach(emp => { emailRows[emp.group]?.push(`${emp.name.split(',').reverse().join(' ').trim()}: ${emp.sinHours.toFixed(2)} hours`); });
       let body = `Hi ${l.emailTo},\n\n`;
-      l.companies.forEach(company => {
-        if (emailRows[company].length > 0) {
-          body += `${company}\n\n${emailRows[company].join('\n')}\n\n`;
-        }
-      });
+      l.companies.forEach(company => { if (emailRows[company].length > 0) body += `${company}\n\n${emailRows[company].join('\n')}\n\n`; });
       body += `Thanks,\n${l.emailFrom}`;
-
       const full = `Subject: barburrito ${l.locationLabel} Pay Period: ${currentPeriod}\n\n${body}`;
       document.getElementById('email-body').textContent = full;
       document.getElementById('email-card').classList.remove('hidden');
@@ -669,110 +542,289 @@
     }
 
     // ============================================================
-    // PDF
+    // PDF GENERATION
     // ============================================================
     function generatePDF() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       const l = loc();
-
       let totals = { hours: 0, sin: 0, cash: 0, coins: 0 };
-      processedData.forEach(r => {
-        totals.hours += r.hours;
-        totals.sin += r.sinPay;
-        totals.cash += r.cashPay;
-        totals.coins += calculateCoins(r.cashPay);
-      });
+      processedData.forEach(r => { totals.hours += r.hours; totals.sin += r.sinPay; totals.cash += r.cashPay; totals.coins += calculateCoins(r.cashPay); });
 
-      // Page 1: Summary
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
       doc.text('Payroll Summary', 105, 15, { align: 'center' });
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100);
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(100);
       doc.text(`Period: ${currentPeriod}  |  Location: ${l.name}`, 14, 23);
       doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}`, 14, 28);
 
-      const rows = processedData.map(r => [
-        r.name, r.hours.toFixed(2), r.sinHours.toFixed(2), r.cashHours.toFixed(2),
-        `$${r.sinPay.toFixed(2)}`, `$${r.cashPay.toFixed(2)}`, `$${calculateCoins(r.cashPay).toFixed(2)}`
-      ]);
-      rows.push([
-        { content: 'TOTAL', styles: { fontStyle: 'bold', fillColor: [243,244,246] } },
-        { content: totals.hours.toFixed(2), styles: { fontStyle: 'bold', fillColor: [243,244,246] } },
-        '', '',
-        { content: `$${totals.sin.toFixed(2)}`, styles: { fontStyle: 'bold', fillColor: [243,244,246] } },
-        { content: `$${totals.cash.toFixed(2)}`, styles: { fontStyle: 'bold', fillColor: [243,244,246] } },
-        { content: `$${totals.coins.toFixed(2)}`, styles: { fontStyle: 'bold', fillColor: [243,244,246] } }
-      ]);
+      const rows = processedData.map(r => [r.name, r.hours.toFixed(2), r.sinHours.toFixed(2), r.cashHours.toFixed(2), `$${r.sinPay.toFixed(2)}`, `$${r.cashPay.toFixed(2)}`, `$${calculateCoins(r.cashPay).toFixed(2)}`]);
+      rows.push([{ content: 'TOTAL', styles: { fontStyle: 'bold', fillColor: [243,244,246] } }, { content: totals.hours.toFixed(2), styles: { fontStyle: 'bold', fillColor: [243,244,246] } }, '', '', { content: `$${totals.sin.toFixed(2)}`, styles: { fontStyle: 'bold', fillColor: [243,244,246] } }, { content: `$${totals.cash.toFixed(2)}`, styles: { fontStyle: 'bold', fillColor: [243,244,246] } }, { content: `$${totals.coins.toFixed(2)}`, styles: { fontStyle: 'bold', fillColor: [243,244,246] } }]);
 
-      doc.autoTable({
-        startY: 34,
-        head: [['Employee', 'Total Hrs', 'SIN Hrs', 'Cash Hrs', 'SIN Pay', 'Cash Pay', 'Coins']],
-        body: rows,
-        theme: 'striped',
-        headStyles: { fillColor: [17,24,39], halign: 'center', fontSize: 7 },
-        bodyStyles: { fontSize: 7 },
-        columnStyles: { 0: { cellWidth: 42 }, 1:{halign:'right'}, 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'}, 5:{halign:'right'}, 6:{halign:'right'} }
-      });
+      doc.autoTable({ startY: 34, head: [['Employee', 'Total Hrs', 'SIN Hrs', 'Cash Hrs', 'SIN Pay', 'Cash Pay', 'Coins']], body: rows, theme: 'striped', headStyles: { fillColor: [17,24,39], halign: 'center', fontSize: 7 }, bodyStyles: { fontSize: 7 }, columnStyles: { 0: { cellWidth: 42 }, 1:{halign:'right'}, 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'}, 5:{halign:'right'}, 6:{halign:'right'} } });
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(22, 101, 52);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(22, 101, 52);
       doc.text(`COINS FROM REGISTER: $${totals.coins.toFixed(2)}`, 14, doc.lastAutoTable.finalY + 8);
 
-      // Page 2: Cash Slips
-      doc.addPage();
-      doc.setTextColor(0);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
+      doc.addPage(); doc.setTextColor(0); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
       doc.text('Cash Pay Slips', 105, 12, { align: 'center' });
-
-      const m = 10, sy = 20;
-      const cw = (210 - 2 * m) / 3;
-      const rh = (297 - sy - m) / 5;
-      const cashEmps = processedData.filter(r => r.cashHours > 0);
-
-      cashEmps.forEach((emp, i) => {
-        const col = i % 3, row = Math.floor(i / 3);
-        const x = m + col * cw, y = sy + row * rh;
-        const coins = calculateCoins(emp.cashPay);
-        const bills = emp.cashPay - coins;
-
-        doc.setDrawColor(220);
-        doc.rect(x, y, cw, rh);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text(emp.name, x + 3, y + 7);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6);
-        doc.setTextColor(100);
+      const m = 10, sy = 20, cw = (210 - 2 * m) / 3, rh = (297 - sy - m) / 5;
+      processedData.filter(r => r.cashHours > 0).forEach((emp, i) => {
+        const col = i % 3, row = Math.floor(i / 3), x = m + col * cw, y = sy + row * rh;
+        const coins = calculateCoins(emp.cashPay), bills = emp.cashPay - coins;
+        doc.setDrawColor(220); doc.rect(x, y, cw, rh);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text(emp.name, x + 3, y + 7);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(100);
         doc.text(currentPeriod.substring(0, 30), x + 3, y + 12);
-
-        doc.setTextColor(0);
-        doc.setFontSize(7);
-        doc.text('Cash Hours:', x + 3, y + 19);
-        doc.text(emp.cashHours.toFixed(2), x + cw - 5, y + 19, { align: 'right' });
-
-        doc.setFont('helvetica', 'bold');
-        doc.text('Bills ($5+):', x + 3, y + 24);
-        doc.text(`$${bills.toFixed(2)}`, x + cw - 5, y + 24, { align: 'right' });
-
-        doc.setTextColor(37, 99, 235);
-        doc.text('Coins:', x + 3, y + 29);
-        doc.text(`$${coins.toFixed(2)}`, x + cw - 5, y + 29, { align: 'right' });
-
-        doc.setFillColor(240, 253, 244);
-        doc.rect(x + 2, y + 32, cw - 4, 8, 'F');
-        doc.setTextColor(0);
-        doc.setFontSize(9);
-        doc.text(`$${emp.cashPay.toFixed(2)}`, x + cw / 2, y + 38, { align: 'center' });
+        doc.setTextColor(0); doc.setFontSize(7);
+        doc.text('Cash Hours:', x + 3, y + 19); doc.text(emp.cashHours.toFixed(2), x + cw - 5, y + 19, { align: 'right' });
+        doc.setFont('helvetica', 'bold'); doc.text('Bills ($5+):', x + 3, y + 24); doc.text(`$${bills.toFixed(2)}`, x + cw - 5, y + 24, { align: 'right' });
+        doc.setTextColor(37, 99, 235); doc.text('Coins:', x + 3, y + 29); doc.text(`$${coins.toFixed(2)}`, x + cw - 5, y + 29, { align: 'right' });
+        doc.setFillColor(240, 253, 244); doc.rect(x + 2, y + 32, cw - 4, 8, 'F');
+        doc.setTextColor(0); doc.setFontSize(9); doc.text(`$${emp.cashPay.toFixed(2)}`, x + cw / 2, y + 38, { align: 'center' });
       });
-
       doc.save(`Payroll_${currentLocation}_${currentPeriod.replace(/[^a-z0-9]/gi, '_')}.pdf`);
       toast('PDF generated');
     }
+
+    // ============================================================
+    // PDF SPLITTER (client-side)
+    // ============================================================
+    let splitterFiles = [];    // { name, arrayBuffer }
+    let splitterPages = [];    // { fileIdx, pageNum, totalPages, employee, company, payPeriod, filename, textPreview }
+    const { PDFDocument } = PDFLib;
+
+    const pdfDropZone = document.getElementById('pdf-drop-zone');
+    const pdfInput = document.getElementById('pdf-input');
+
+    pdfInput.addEventListener('change', (e) => { if (e.target.files.length) splitterHandleFiles(e.target.files); });
+    pdfDropZone.addEventListener('dragover', (e) => { e.preventDefault(); pdfDropZone.classList.add('border-gray-400', 'bg-gray-50'); });
+    pdfDropZone.addEventListener('dragleave', () => { pdfDropZone.classList.remove('border-gray-400', 'bg-gray-50'); });
+    pdfDropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); pdfDropZone.classList.remove('border-gray-400', 'bg-gray-50');
+      const pdfs = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+      if (pdfs.length) splitterHandleFiles(pdfs);
+      else toast('Drop PDF files only', 'error');
+    });
+
+    async function splitterHandleFiles(fileList) {
+      const pdfs = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+      if (!pdfs.length) { toast('Select PDF files', 'error'); return; }
+
+      document.getElementById('pdf-status').textContent = `Loading ${pdfs.length} file${pdfs.length > 1 ? 's' : ''}...`;
+      splitterFiles = [];
+      splitterPages = [];
+
+      for (let fi = 0; fi < pdfs.length; fi++) {
+        const buf = await pdfs[fi].arrayBuffer();
+        splitterFiles.push({ name: pdfs[fi].name, arrayBuffer: buf });
+
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const textContent = await page.getTextContent();
+          const text = textContent.items.map(i => i.str).join(' ');
+          const info = splitterExtractInfo(text);
+          splitterPages.push({
+            fileIdx: fi, pageNum: p, totalPages: pdf.numPages,
+            employee: info.employee, company: info.company, payPeriod: info.payPeriod,
+            filename: splitterSanitize(info.employee) + '_' + splitterSanitize(info.payPeriod) + '.pdf',
+            textPreview: text.substring(0, 500)
+          });
+        }
+      }
+
+      document.getElementById('pdf-status').textContent = '';
+      document.getElementById('pdf-file-label').textContent = `${pdfs.length} PDF${pdfs.length > 1 ? 's' : ''} loaded`;
+      splitterRender();
+    }
+
+    function splitterExtractInfo(text) {
+      const lines = text.split(/\s{2,}/).map(s => s.trim()).filter(Boolean);
+      let company = 'Unknown Company', employee = 'Unknown Employee', payPeriod = 'unknown_period';
+
+      // Company
+      const companyPatterns = [
+        /^([A-Z][A-Z\s.,\-]+(?:INC\.?|LTD\.?|LIMITED|INCORPORATED|CORP\.?|CORPORATION)\.?)$/i,
+        /^(\d+\s+[A-Z][A-Z\s]+(?:INC\.?|LTD\.?|LIMITED|INCORPORATED|CORP\.?|CORPORATION)\.?)$/i,
+      ];
+      for (const line of lines.slice(0, 5)) {
+        for (const pat of companyPatterns) {
+          const m = line.match(pat);
+          if (m) { company = m[1].trim().replace(/,+$/, '').trim(); break; }
+        }
+        if (company !== 'Unknown Company') break;
+      }
+      if (company === 'Unknown Company' && lines.length && !/^\d/.test(lines[0])) company = lines[0];
+
+      // Employee
+      for (let i = 2; i < Math.min(6, lines.length); i++) {
+        if (/^[A-Z][A-Z\s.'-]+$/.test(lines[i]) && !/^\d/.test(lines[i]) && lines[i].length > 3 && lines[i] !== 'Employee Paystub' && lines[i] !== company) {
+          employee = lines[i]; break;
+        }
+      }
+      if (employee === 'Unknown Employee') {
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i] === 'Employee' && i + 1 < lines.length) { employee = lines[i + 1].split(',')[0].trim(); break; }
+        }
+      }
+
+      // Pay period
+      let m = text.match(/Pay\s*Period:\s*(\d{4}-\d{2}-\d{2})\s*[-–]\s*(\d{4}-\d{2}-\d{2})/);
+      if (m) payPeriod = `${m[1]}_to_${m[2]}`;
+      else {
+        m = text.match(/Pay\s*Period:\s*(\w+\s+\d{1,2},\s*\d{4})\s*[-–]\s*(\w+\s+\d{1,2},\s*\d{4})/i);
+        if (m) {
+          try {
+            const s = new Date(m[1]), e = new Date(m[2]);
+            payPeriod = `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,'0')}-${String(s.getDate()).padStart(2,'0')}_to_${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}`;
+          } catch(ex) {}
+        }
+      }
+
+      return { company, employee, payPeriod };
+    }
+
+    function splitterSanitize(name) {
+      return (name || 'Unknown').replace(/[\\/*?:\"<>|]/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'Unknown';
+    }
+
+    function splitterRender() {
+      const results = document.getElementById('splitter-results');
+      results.classList.remove('hidden');
+      document.getElementById('splitter-summary').textContent = `${splitterFiles.length} file${splitterFiles.length > 1 ? 's' : ''} · ${splitterPages.length} page${splitterPages.length > 1 ? 's' : ''}`;
+
+      const container = document.getElementById('splitter-pages');
+      container.innerHTML = '';
+
+      // Group by file
+      const groups = {};
+      splitterPages.forEach((p, idx) => {
+        p._idx = idx;
+        if (!groups[p.fileIdx]) groups[p.fileIdx] = { name: splitterFiles[p.fileIdx].name, pages: [] };
+        groups[p.fileIdx].pages.push(p);
+      });
+
+      Object.values(groups).forEach(g => {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'bg-white rounded-xl border border-gray-200 overflow-hidden';
+        groupDiv.innerHTML = `<div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between"><span class="text-sm font-medium text-gray-700">${escapeHtml(g.name)}</span><span class="text-xs text-gray-400">${g.pages.length} page${g.pages.length > 1 ? 's' : ''}</span></div>`;
+
+        const pagesDiv = document.createElement('div');
+        pagesDiv.className = 'divide-y divide-gray-100';
+
+        g.pages.forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'px-5 py-4 hover:bg-gray-50 transition-colors';
+          card.innerHTML = `
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-medium text-gray-400">Page ${p.pageNum} of ${p.totalPages}</span>
+              <button onclick="splitterTogglePreview(${p._idx}, this)" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Preview</button>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="block text-[10px] font-medium text-gray-400 uppercase mb-1">Company</label><input type="text" value="${escapeHtml(p.company)}" class="sp-field w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" data-idx="${p._idx}" data-key="company" /></div>
+              <div><label class="block text-[10px] font-medium text-gray-400 uppercase mb-1">Employee</label><input type="text" value="${escapeHtml(p.employee)}" class="sp-field w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" data-idx="${p._idx}" data-key="employee" /></div>
+              <div><label class="block text-[10px] font-medium text-gray-400 uppercase mb-1">Pay Period</label><input type="text" value="${escapeHtml(p.payPeriod)}" class="sp-field w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" data-idx="${p._idx}" data-key="payPeriod" /></div>
+              <div><label class="block text-[10px] font-medium text-gray-400 uppercase mb-1">Output Filename</label><input type="text" value="${escapeHtml(p.filename)}" class="sp-filename w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0 font-mono" data-idx="${p._idx}" /></div>
+            </div>
+            <div class="sp-preview hidden mt-3 text-xs text-gray-500 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap font-mono max-h-32 overflow-y-auto">${escapeHtml(p.textPreview)}</div>`;
+          pagesDiv.appendChild(card);
+        });
+
+        groupDiv.appendChild(pagesDiv);
+        container.appendChild(groupDiv);
+      });
+
+      // Listeners for field edits
+      container.querySelectorAll('.sp-field').forEach(input => {
+        input.addEventListener('input', function() {
+          const idx = parseInt(this.dataset.idx);
+          const key = this.dataset.key;
+          splitterPages[idx][key] = this.value.trim();
+          // Auto-update filename
+          splitterPages[idx].filename = splitterSanitize(splitterPages[idx].employee) + '_' + splitterSanitize(splitterPages[idx].payPeriod) + '.pdf';
+          const fnInput = container.querySelector(`.sp-filename[data-idx="${idx}"]`);
+          if (fnInput) fnInput.value = splitterPages[idx].filename;
+        });
+      });
+      container.querySelectorAll('.sp-filename').forEach(input => {
+        input.addEventListener('input', function() { splitterPages[parseInt(this.dataset.idx)].filename = this.value.trim(); });
+      });
+
+      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function splitterTogglePreview(idx, btn) {
+      const card = btn.closest('.px-5');
+      const preview = card.querySelector('.sp-preview');
+      if (preview.classList.contains('hidden')) { preview.classList.remove('hidden'); btn.textContent = 'Hide'; }
+      else { preview.classList.add('hidden'); btn.textContent = 'Preview'; }
+    }
+
+    function splitterRescan() {
+      // Re-extract from stored buffers
+      splitterPages = [];
+      splitterFiles.forEach(async (f, fi) => {
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(f.arrayBuffer) }).promise;
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const textContent = await page.getTextContent();
+          const text = textContent.items.map(i => i.str).join(' ');
+          const info = splitterExtractInfo(text);
+          splitterPages.push({
+            fileIdx: fi, pageNum: p, totalPages: pdf.numPages,
+            employee: info.employee, company: info.company, payPeriod: info.payPeriod,
+            filename: splitterSanitize(info.employee) + '_' + splitterSanitize(info.payPeriod) + '.pdf',
+            textPreview: text.substring(0, 500)
+          });
+        }
+        if (fi === splitterFiles.length - 1) splitterRender();
+      });
+      toast('Re-scanned', 'info');
+    }
+
+    function splitterReset() {
+      splitterFiles = []; splitterPages = [];
+      document.getElementById('splitter-results').classList.add('hidden');
+      document.getElementById('pdf-file-label').textContent = 'Drop PDF payslips or click to browse';
+      document.getElementById('pdf-status').textContent = '';
+      pdfInput.value = '';
+    }
+
+    async function splitterDownloadAll() {
+      if (!splitterPages.length) return;
+      const btn = document.getElementById('btn-split-all');
+      btn.disabled = true; btn.textContent = 'Building...';
+
+      try {
+        const zip = await PDFLib.PDFDocument.create();
+        // pdf-lib doesn't have zip support, so we'll download individually or use a trick
+        // Actually let's use JSZip approach - but to avoid another CDN, download each individually
+        // Better: use the browser's ability to create a zip via a simple approach
+
+        // We'll download each file individually in sequence (simpler, no extra deps)
+        for (const p of splitterPages) {
+          const srcBuf = splitterFiles[p.fileIdx].arrayBuffer;
+          const srcDoc = await PDFDocument.load(srcBuf);
+          const newDoc = await PDFDocument.create();
+          const [copiedPage] = await newDoc.copyPages(srcDoc, [p.pageNum - 1]);
+          newDoc.addPage(copiedPage);
+          const pdfBytes = await newDoc.save();
+          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = p.filename; a.click();
+          URL.revokeObjectURL(url);
+          // Small delay between downloads
+          await new Promise(r => setTimeout(r, 200));
+        }
+        toast(`Downloaded ${splitterPages.length} files`);
+      } catch (err) {
+        toast('Error: ' + err.message, 'error');
+      }
+      btn.disabled = false; btn.textContent = 'Download All as ZIP';
+    }
+
+    function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 
     // ============================================================
     // EXPORT / IMPORT
@@ -780,21 +832,13 @@
     function exportData() {
       const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `barburrito_payroll_backup_${new Date().toISOString().slice(0,10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast('Backup exported');
+      const a = document.createElement('a'); a.href = url;
+      a.download = `barburrito_payroll_backup_${new Date().toISOString().slice(0,10)}.json`; a.click();
+      URL.revokeObjectURL(url); toast('Backup exported');
     }
-
     function downloadFile(content, filename, type) {
-      const blob = new Blob([content], { type });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
+      const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
       URL.revokeObjectURL(url);
     }
 
@@ -807,7 +851,6 @@
       document.getElementById('location-label').textContent = loc().label;
       document.getElementById('location-name').textContent = loc().name;
     }
-
     init();
   </script>
 </body>
