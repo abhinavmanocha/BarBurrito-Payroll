@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BarBurrito Payroll</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: { 50:'#fef3f2', 100:'#fee4e2', 200:'#fecdc9', 300:'#fcaaa4', 400:'#f87171', 500:'#ef4444', 600:'#dc2626', 700:'#b91c1c', 800:'#991b1b', 900:'#7f1d1d' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Inter', sans-serif; }
+    .tab-active { color: #111; border-bottom: 2px solid #111; }
+    .tab-inactive { color: #9ca3af; border-bottom: 2px solid transparent; }
+    .tab-inactive:hover { color: #6b7280; }
+    .fade-in { animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-4 py-6 md:py-10">
+
+    <!-- Header -->
+    <header class="mb-8">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-xl font-semibold text-gray-900 tracking-tight">BarBurrito Payroll</h1>
+          <p class="text-sm text-gray-400 mt-0.5" id="location-label">Brampton, ON</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="exportData()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors" title="Export backup">Export</button>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="location-toggle" class="sr-only peer" onchange="switchLocation()">
+            <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gray-900"></div>
+          </label>
+          <span class="text-xs font-medium text-gray-500 min-w-[56px]" id="location-name">Brampton</span>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <nav class="flex gap-6 border-b border-gray-200">
+        <button onclick="showTab('payroll')" class="tab-active pb-3 text-sm font-medium transition-colors" data-tab="payroll">Payroll</button>
+        <button onclick="showTab('employees')" class="tab-inactive pb-3 text-sm font-medium transition-colors" data-tab="employees">Employees</button>
+        <button onclick="showTab('settings')" class="tab-inactive pb-3 text-sm font-medium transition-colors" data-tab="settings">Settings</button>
+      </nav>
+    </header>
+
+    <!-- ==================== PAYROLL TAB ==================== -->
+    <div id="tab-payroll" class="fade-in space-y-5">
+
+      <!-- Upload Card -->
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <label for="file-input" class="block cursor-pointer">
+          <div class="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center hover:border-gray-400 hover:bg-gray-50 transition-all" id="drop-zone">
+            <svg class="w-8 h-8 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <p class="text-sm text-gray-500" id="file-label">Drop Excel file or click to browse</p>
+            <p class="text-xs text-gray-300 mt-1">.xlsx only</p>
+          </div>
+          <input id="file-input" type="file" class="hidden" accept=".xlsx" />
+        </label>
+
+        <div class="flex items-center justify-between mt-4">
+          <div>
+            <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Pay Period</p>
+            <p class="text-sm font-medium text-gray-700" id="pay-period">--</p>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-process" disabled onclick="processFile()" class="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-black transition-colors">Process</button>
+            <button id="btn-pdf" disabled onclick="generatePDF()" class="px-4 py-2 text-sm font-medium bg-white text-gray-700 border border-gray-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors">PDF</button>
+            <button id="btn-email" disabled onclick="copyEmail()" class="px-4 py-2 text-sm font-medium bg-white text-gray-700 border border-gray-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors">Copy Email</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview Table -->
+      <div id="preview-card" class="bg-white rounded-xl border border-gray-200 p-5 hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-semibold text-gray-900">Preview</h3>
+          <span class="text-xs text-gray-400" id="emp-count">0 employees</span>
+        </div>
+        <div class="overflow-x-auto -mx-5 px-5">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-100">
+                <th class="text-left py-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Employee</th>
+                <th class="text-right py-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Total</th>
+                <th class="text-right py-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider">SIN Hrs</th>
+                <th class="text-right py-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Cash Hrs</th>
+                <th class="text-right py-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Cash Pay</th>
+                <th class="text-right py-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Coins</th>
+                <th class="w-8"></th>
+              </tr>
+            </thead>
+            <tbody id="preview-body" class="divide-y divide-gray-50"></tbody>
+            <tfoot id="preview-foot" class="border-t border-gray-200 font-medium text-gray-900"></tfoot>
+          </table>
+        </div>
+        <div id="warning-box" class="hidden mt-3 p-2 bg-amber-50 border border-amber-100 rounded-lg">
+          <p class="text-xs text-amber-700">Some employees were not found in your master list. Using 0h SIN limit.</p>
+        </div>
+      </div>
+
+      <!-- Email Preview -->
+      <div id="email-card" class="bg-white rounded-xl border border-gray-200 p-5 hidden">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">Email Draft</h3>
+        <pre class="text-xs text-gray-600 bg-gray-50 rounded-lg p-4 whitespace-pre-wrap border border-gray-100 font-mono leading-relaxed" id="email-body"></pre>
+      </div>
+    </div>
+
+    <!-- ==================== EMPLOYEES TAB ==================== -->
+    <div id="tab-employees" class="fade-in hidden space-y-5">
+
+      <!-- Add Employee -->
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-semibold text-gray-900">Employee Master List</h3>
+          <span class="text-xs text-gray-400" id="total-employees">0 employees</span>
+        </div>
+
+        <!-- Add form -->
+        <div class="flex gap-2 mb-4">
+          <input id="new-name" type="text" placeholder="Name (e.g. Kaur, Gurleen)" class="flex-1 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
+          <input id="new-hours" type="number" placeholder="SIN hrs" value="0" class="w-24 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
+          <select id="new-company" class="w-48 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0"></select>
+          <button onclick="addEmployee()" class="px-3 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-black transition-colors whitespace-nowrap">+ Add</button>
+        </div>
+
+        <!-- Employee list -->
+        <div id="employee-list" class="space-y-2 max-h-[480px] overflow-y-auto custom-scrollbar"></div>
+      </div>
+
+      <!-- Bulk actions -->
+      <div class="flex gap-2">
+        <button onclick="exportEmployees()" class="px-3 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Export CSV</button>
+        <label class="px-3 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+          Import CSV
+          <input type="file" accept=".csv" class="hidden" onchange="importEmployees(event)" />
+        </label>
+      </div>
+    </div>
+
+    <!-- ==================== SETTINGS TAB ==================== -->
+    <div id="tab-settings" class="fade-in hidden space-y-5">
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 class="text-sm font-semibold text-gray-900 mb-4">Pay Rates</h3>
+        <div class="grid grid-cols-2 gap-4 max-w-sm">
+          <div>
+            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">SIN Rate ($/hr)</label>
+            <input id="cfg-sin-rate" type="number" step="0.01" class="w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">Cash Rate ($/hr)</label>
+            <input id="cfg-cash-rate" type="number" step="0.01" class="w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 class="text-sm font-semibold text-gray-900 mb-4">Company Names</h3>
+        <div id="company-list" class="space-y-2"></div>
+        <button onclick="addCompany()" class="mt-3 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors">+ Add company</button>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 class="text-sm font-semibold text-gray-900 mb-4">Email Defaults</h3>
+        <div class="space-y-3 max-w-sm">
+          <div>
+            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">To</label>
+            <input id="cfg-email-to" type="text" class="w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" placeholder="e.g. Pirthpal Ji" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">From</label>
+            <input id="cfg-email-from" type="text" class="w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" placeholder="e.g. Abhinav Manocha" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">Location Label</label>
+            <input id="cfg-location-label" type="text" class="w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" placeholder="e.g. Quarry Edge" />
+          </div>
+        </div>
+      </div>
+
+      <button onclick="saveSettings()" class="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-black transition-colors">Save Settings</button>
+    </div>
+
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed top-5 right-5 px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow-lg transition-all duration-300 transform translate-y-[-8px] opacity-0 pointer-events-none z-50"></div>
+
+  <script>
+    // ============================================================
+    // DEFAULTS
+    // ============================================================
+    const LOCATIONS = {
+      brampton: {
+        label: 'Brampton, ON',
+        name: 'Brampton',
+        sinRate: 17.55,
+        cashRate: 12.00,
+        companies: ['2619959 Ontario Inc.', 'Ganpati Int.'],
+        emailTo: 'Pirthpal Ji',
+        emailFrom: 'Abhinav Manocha',
+        locationLabel: 'Quarry Edge',
+        employees: {
+          'Aneja, Madhur':    { hours: 70, group: '2619959 Ontario Inc.' },
+          'Arora, Kashish':   { hours: 60, group: '2619959 Ontario Inc.' },
+          'Kaur, Gurkirat':   { hours: 40, group: 'Ganpati Int.' },
+          'Kaur, Prabhjeet':  { hours: 30, group: '2619959 Ontario Inc.' },
+          'Kaur, Savreet':    { hours: 40, group: 'Ganpati Int.' },
+          'Patel, Harisha':   { hours: 0,  group: '2619959 Ontario Inc.' },
+          'Shah, Priyal':     { hours: 50, group: '2619959 Ontario Inc.' },
+          'Sharma, Aastha':   { hours: 60, group: 'Ganpati Int.' },
+        }
+      },
+      milton: {
+        label: 'Milton, ON',
+        name: 'Milton',
+        sinRate: 17.60,
+        cashRate: 12.00,
+        companies: ['2619959 Ontario Inc.'],
+        emailTo: '',
+        emailFrom: 'Abhinav Manocha',
+        locationLabel: 'Milton',
+        employees: {
+          'Kaur, Baldish':    { hours: 60, group: '2619959 Ontario Inc.' },
+          'Kaur, Gurleen':    { hours: 61, group: '2619959 Ontario Inc.' },
+          'Kaur, Harjot':     { hours: 30, group: '2619959 Ontario Inc.' },
+          'Sidhu, Komaljot':  { hours: 40, group: '2619959 Ontario Inc.' },
+          'Singh, Hartej':    { hours: 61, group: '2619959 Ontario Inc.' },
+        }
+      }
+    };
+
+    const STORAGE_KEY = 'bb_payroll_v3';
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let state = loadState();
+    let currentLocation = state.lastLocation || 'brampton';
+    let processedData = [];
+    let currentPeriod = '';
+
+    function defaultState() {
+      return {
+        lastLocation: 'brampton',
+        locations: JSON.parse(JSON.stringify(LOCATIONS))
+      };
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch(e) {}
+      return defaultState();
+    }
+
+    function saveState() {
+      state.lastLocation = currentLocation;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function loc() { return state.locations[currentLocation]; }
+
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
+    function showTab(tab) {
+      document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+      document.getElementById('tab-' + tab).classList.remove('hidden');
+      document.querySelectorAll('[data-tab]').forEach(btn => {
+        btn.className = btn.dataset.tab === tab ? 'tab-active pb-3 text-sm font-medium transition-colors' : 'tab-inactive pb-3 text-sm font-medium transition-colors';
+      });
+      if (tab === 'employees') renderEmployees();
+      if (tab === 'settings') renderSettings();
+    }
+
+    function switchLocation() {
+      const toggle = document.getElementById('location-toggle');
+      currentLocation = toggle.checked ? 'milton' : 'brampton';
+      document.getElementById('location-label').textContent = loc().label;
+      document.getElementById('location-name').textContent = loc().name;
+      processedData = [];
+      currentPeriod = '';
+      resetPayrollUI();
+      saveState();
+    }
+
+    function resetPayrollUI() {
+      document.getElementById('file-label').textContent = 'Drop Excel file or click to browse';
+      document.getElementById('pay-period').textContent = '--';
+      document.getElementById('btn-process').disabled = true;
+      document.getElementById('btn-pdf').disabled = true;
+      document.getElementById('btn-email').disabled = true;
+      document.getElementById('preview-card').classList.add('hidden');
+      document.getElementById('email-card').classList.add('hidden');
+      document.getElementById('file-input').value = '';
+    }
+
+    // ============================================================
+    // TOAST
+    // ============================================================
+    function toast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `fixed top-5 right-5 px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow-lg transition-all duration-300 z-50 ${type === 'success' ? 'bg-gray-900' : 'bg-red-500'}`;
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+      el.classList.remove('pointer-events-none');
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-8px)';
+        el.classList.add('pointer-events-none');
+      }, 2500);
+    }
+
+    // ============================================================
+    // EMPLOYEE MANAGEMENT
+    // ============================================================
+    function normalizeName(n) { return n.toLowerCase().replace(/[^a-z]/g, ''); }
+
+    function getEmployeeConfig(name) {
+      const norm = normalizeName(name);
+      const entry = Object.entries(loc().employees).find(([k]) => normalizeName(k) === norm);
+      return entry ? { ...entry[1], matchedName: entry[0] } : null;
+    }
+
+    function renderEmployees() {
+      const list = document.getElementById('employee-list');
+      const companies = loc().companies;
+      const employees = loc().employees;
+      const keys = Object.keys(employees).sort();
+
+      document.getElementById('total-employees').textContent = `${keys.length} employees`;
+
+      // Populate company dropdown in add form
+      const sel = document.getElementById('new-company');
+      sel.innerHTML = companies.map(c => `<option value="${c}">${c}</option>`).join('');
+
+      list.innerHTML = '';
+      keys.forEach(name => {
+        const data = employees[name];
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group';
+        div.innerHTML = `
+          <div class="flex-1 min-w-0">
+            <input type="text" value="${name}" data-original="${name}" class="w-full text-sm font-medium text-gray-900 bg-transparent border-0 p-0 focus:ring-0 focus:outline-none emp-name" />
+          </div>
+          <input type="number" value="${data.hours}" class="w-20 text-sm text-right bg-transparent border-0 p-0 focus:ring-0 focus:outline-none emp-hours" title="SIN limit" />
+          <select class="text-sm bg-transparent border-0 p-0 focus:ring-0 focus:outline-none text-gray-500 emp-group">
+            ${companies.map(c => `<option value="${c}" ${data.group === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+          <button onclick="removeEmployee('${name}')" class="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 ml-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        `;
+        list.appendChild(div);
+      });
+
+      // Save on blur
+      list.querySelectorAll('.emp-name, .emp-hours, .emp-group').forEach(input => {
+        input.addEventListener('blur', () => {
+          const row = input.closest('.flex');
+          const origName = row.querySelector('.emp-name').dataset.original;
+          const newName = row.querySelector('.emp-name').value.trim();
+          const hours = parseFloat(row.querySelector('.emp-hours').value) || 0;
+          const group = row.querySelector('.emp-group').value;
+
+          if (!newName) return;
+          if (newName !== origName) {
+            delete loc().employees[origName];
+          }
+          loc().employees[newName] = { hours, group };
+          saveState();
+          renderEmployees();
+        });
+      });
+    }
+
+    function addEmployee() {
+      const name = document.getElementById('new-name').value.trim();
+      const hours = parseFloat(document.getElementById('new-hours').value) || 0;
+      const group = document.getElementById('new-company').value;
+      if (!name) { toast('Enter a name', 'error'); return; }
+      loc().employees[name] = { hours, group };
+      saveState();
+      document.getElementById('new-name').value = '';
+      document.getElementById('new-hours').value = '0';
+      renderEmployees();
+      toast(`${name} added`);
+    }
+
+    function removeEmployee(name) {
+      delete loc().employees[name];
+      saveState();
+      renderEmployees();
+    }
+
+    function exportEmployees() {
+      const rows = [['Name','SIN Hours','Company']];
+      Object.entries(loc().employees).forEach(([n, d]) => rows.push([n, d.hours, d.group]));
+      const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+      downloadFile(csv, `employees_${currentLocation}.csv`, 'text/csv');
+      toast('Exported');
+    }
+
+    function importEmployees(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const lines = e.target.result.split('\n').filter(l => l.trim());
+        let count = 0;
+        lines.slice(1).forEach(line => {
+          const parts = line.split(',').map(s => s.replace(/"/g, '').trim());
+          if (parts[0] && parts[1]) {
+            loc().employees[parts[0]] = { hours: parseInt(parts[1]) || 0, group: parts[2] || loc().companies[0] };
+            count++;
+          }
+        });
+        saveState();
+        renderEmployees();
+        toast(`Imported ${count} employees`);
+      };
+      reader.readAsText(file);
+    }
+
+    // ============================================================
+    // SETTINGS
+    // ============================================================
+    function renderSettings() {
+      const l = loc();
+      document.getElementById('cfg-sin-rate').value = l.sinRate;
+      document.getElementById('cfg-cash-rate').value = l.cashRate;
+      document.getElementById('cfg-email-to').value = l.emailTo;
+      document.getElementById('cfg-email-from').value = l.emailFrom;
+      document.getElementById('cfg-location-label').value = l.locationLabel;
+
+      const list = document.getElementById('company-list');
+      list.innerHTML = '';
+      l.companies.forEach((c, i) => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2';
+        div.innerHTML = `
+          <input type="text" value="${c}" class="flex-1 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0 company-input" data-index="${i}" />
+          <button onclick="removeCompany(${i})" class="text-gray-300 hover:text-red-500 transition-colors px-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function addCompany() {
+      const name = prompt('Company name:');
+      if (name && name.trim()) {
+        loc().companies.push(name.trim());
+        saveState();
+        renderSettings();
+      }
+    }
+
+    function removeCompany(index) {
+      if (loc().companies.length <= 1) { toast('Need at least one company', 'error'); return; }
+      loc().companies.splice(index, 1);
+      saveState();
+      renderSettings();
+    }
+
+    function saveSettings() {
+      const l = loc();
+      l.sinRate = parseFloat(document.getElementById('cfg-sin-rate').value) || l.sinRate;
+      l.cashRate = parseFloat(document.getElementById('cfg-cash-rate').value) || l.cashRate;
+      l.emailTo = document.getElementById('cfg-email-to').value;
+      l.emailFrom = document.getElementById('cfg-email-from').value;
+      l.locationLabel = document.getElementById('cfg-location-label').value;
+
+      // Save company names from inputs
+      document.querySelectorAll('.company-input').forEach(input => {
+        const idx = parseInt(input.dataset.index);
+        l.companies[idx] = input.value.trim();
+      });
+
+      saveState();
+      toast('Settings saved');
+    }
+
+    // ============================================================
+    // PAYROLL PROCESSING
+    // ============================================================
+    let selectedFile = null;
+
+    document.getElementById('file-input').addEventListener('change', (e) => {
+      selectedFile = e.target.files[0];
+      if (selectedFile) {
+        document.getElementById('file-label').textContent = selectedFile.name;
+        document.getElementById('btn-process').disabled = false;
+      }
+    });
+
+    // Drag & drop
+    const dropZone = document.getElementById('drop-zone');
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-gray-400', 'bg-gray-50'); });
+    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('border-gray-400', 'bg-gray-50'); });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-gray-400', 'bg-gray-50');
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith('.xlsx')) {
+        selectedFile = file;
+        document.getElementById('file-label').textContent = file.name;
+        document.getElementById('btn-process').disabled = false;
+      } else {
+        toast('Please drop an .xlsx file', 'error');
+      }
+    });
+
+    function processFile() {
+      if (!selectedFile) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const raw = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+          currentPeriod = raw[1]?.[0] || 'Unknown Period';
+          const headers = raw[3] || [];
+          const nameIdx = headers.findIndex(h => h?.toLowerCase().includes('name'));
+          const hoursIdx = headers.findIndex(h => h?.toLowerCase().includes('total hours'));
+
+          if (nameIdx === -1 || hoursIdx === -1) throw new Error('Could not find Name/Total Hours columns in row 4.');
+
+          processedData = [];
+          for (let i = 4; i < raw.length; i++) {
+            const row = raw[i];
+            const rawName = row[nameIdx]?.toString().trim();
+            if (!rawName || rawName === 'Total' || rawName.toLowerCase() === 'all') continue;
+            const hours = parseFloat(row[hoursIdx]) || 0;
+            if (hours === 0) continue;
+
+            const empConf = getEmployeeConfig(rawName);
+            const limit = empConf ? empConf.hours : 0;
+            const group = empConf ? empConf.group : loc().companies[0];
+            const sinHours = Math.min(hours, limit);
+            const cashHours = Math.max(0, hours - limit);
+
+            processedData.push({
+              name: rawName, hours, sinHours, cashHours,
+              sinPay: sinHours * loc().sinRate,
+              cashPay: cashHours * loc().cashRate,
+              isMissing: !empConf, group
+            });
+          }
+
+          if (!processedData.length) throw new Error('No employee data found.');
+          renderPreview();
+          document.getElementById('pay-period').textContent = currentPeriod;
+          document.getElementById('btn-pdf').disabled = false;
+          document.getElementById('btn-email').disabled = false;
+          toast(`Processed ${processedData.length} employees`);
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      };
+      reader.readAsArrayBuffer(selectedFile);
+    }
+
+    function calculateCoins(amount) { return amount % 5; }
+
+    function renderPreview() {
+      const card = document.getElementById('preview-card');
+      const body = document.getElementById('preview-body');
+      const foot = document.getElementById('preview-foot');
+      card.classList.remove('hidden');
+
+      document.getElementById('emp-count').textContent = `${processedData.length} employees`;
+      let totals = { hours: 0, sinHrs: 0, cashHrs: 0, cashPay: 0, coins: 0 };
+      let hasWarnings = false;
+
+      body.innerHTML = '';
+      processedData.forEach((emp, idx) => {
+        if (emp.isMissing) hasWarnings = true;
+        const coins = calculateCoins(emp.cashPay);
+        const tr = document.createElement('tr');
+        tr.className = emp.isMissing ? 'bg-amber-50/50' : '';
+        tr.innerHTML = `
+          <td class="py-2.5 text-gray-900 font-medium">${emp.name}${emp.isMissing ? ' <span class="text-amber-500 text-xs">new</span>' : ''}</td>
+          <td class="py-2.5 text-right text-gray-600">${emp.hours.toFixed(2)}</td>
+          <td class="py-2.5 text-right text-blue-600">${emp.sinHours.toFixed(2)}</td>
+          <td class="py-2.5 text-right text-emerald-600">${emp.cashHours.toFixed(2)}</td>
+          <td class="py-2.5 text-right font-medium text-gray-900">$${emp.cashPay.toFixed(2)}</td>
+          <td class="py-2.5 text-right text-blue-500">$${coins.toFixed(2)}</td>
+          <td class="py-2.5 text-right">
+            <button onclick="removeEmp(${idx})" class="text-gray-300 hover:text-red-500 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </td>
+        `;
+        body.appendChild(tr);
+        totals.hours += emp.hours;
+        totals.sinHrs += emp.sinHours;
+        totals.cashHrs += emp.cashHours;
+        totals.cashPay += emp.cashPay;
+        totals.coins += coins;
+      });
+
+      foot.innerHTML = `
+        <td class="py-2.5 text-xs uppercase text-gray-400">Total</td>
+        <td class="py-2.5 text-right text-xs">${totals.hours.toFixed(2)}</td>
+        <td class="py-2.5 text-right text-xs text-blue-600">${totals.sinHrs.toFixed(2)}</td>
+        <td class="py-2.5 text-right text-xs text-emerald-600">${totals.cashHrs.toFixed(2)}</td>
+        <td class="py-2.5 text-right text-xs">$${totals.cashPay.toFixed(2)}</td>
+        <td class="py-2.5 text-right text-xs text-blue-500">$${totals.coins.toFixed(2)}</td>
+        <td></td>
+      `;
+
+      document.getElementById('warning-box').classList.toggle('hidden', !hasWarnings);
+    }
+
+    function removeEmp(index) {
+      processedData.splice(index, 1);
+      renderPreview();
+    }
+
+    // ============================================================
+    // EMAIL
+    // ============================================================
+    function copyEmail() {
+      const l = loc();
+      const emailRows = {};
+      l.companies.forEach(c => emailRows[c] = []);
+      processedData.forEach(emp => {
+        emailRows[emp.group]?.push(`${emp.name.split(',').reverse().join(' ').trim()}: ${emp.sinHours.toFixed(2)} hours`);
+      });
+
+      let body = `Hi ${l.emailTo},\n\n`;
+      l.companies.forEach(company => {
+        if (emailRows[company].length > 0) {
+          body += `${company}\n\n${emailRows[company].join('\n')}\n\n`;
+        }
+      });
+      body += `Thanks,\n${l.emailFrom}`;
+
+      const full = `Subject: barburrito ${l.locationLabel} Pay Period: ${currentPeriod}\n\n${body}`;
+      document.getElementById('email-body').textContent = full;
+      document.getElementById('email-card').classList.remove('hidden');
+      navigator.clipboard.writeText(full).then(() => toast('Email copied'));
+    }
+
+    // ============================================================
+    // PDF
+    // ============================================================
+    function generatePDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const l = loc();
+
+      let totals = { hours: 0, sin: 0, cash: 0, coins: 0 };
+      processedData.forEach(r => {
+        totals.hours += r.hours;
+        totals.sin += r.sinPay;
+        totals.cash += r.cashPay;
+        totals.coins += calculateCoins(r.cashPay);
+      });
+
+      // Page 1: Summary
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.text('Payroll Summary', 105, 15, { align: 'center' });
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.text(`Period: ${currentPeriod}  |  Location: ${l.name}`, 14, 23);
+      doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}`, 14, 28);
+
+      const rows = processedData.map(r => [
+        r.name, r.hours.toFixed(2), r.sinHours.toFixed(2), r.cashHours.toFixed(2),
+        `$${r.sinPay.toFixed(2)}`, `$${r.cashPay.toFixed(2)}`, `$${calculateCoins(r.cashPay).toFixed(2)}`
+      ]);
+      rows.push([
+        { content: 'TOTAL', styles: { fontStyle: 'bold', fillColor: [243,244,246] } },
+        { content: totals.hours.toFixed(2), styles: { fontStyle: 'bold', fillColor: [243,244,246] } },
+        '', '',
+        { content: `$${totals.sin.toFixed(2)}`, styles: { fontStyle: 'bold', fillColor: [243,244,246] } },
+        { content: `$${totals.cash.toFixed(2)}`, styles: { fontStyle: 'bold', fillColor: [243,244,246] } },
+        { content: `$${totals.coins.toFixed(2)}`, styles: { fontStyle: 'bold', fillColor: [243,244,246] } }
+      ]);
+
+      doc.autoTable({
+        startY: 34,
+        head: [['Employee', 'Total Hrs', 'SIN Hrs', 'Cash Hrs', 'SIN Pay', 'Cash Pay', 'Coins']],
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [17,24,39], halign: 'center', fontSize: 7 },
+        bodyStyles: { fontSize: 7 },
+        columnStyles: { 0: { cellWidth: 42 }, 1:{halign:'right'}, 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'}, 5:{halign:'right'}, 6:{halign:'right'} }
+      });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(22, 101, 52);
+      doc.text(`COINS FROM REGISTER: $${totals.coins.toFixed(2)}`, 14, doc.lastAutoTable.finalY + 8);
+
+      // Page 2: Cash Slips
+      doc.addPage();
+      doc.setTextColor(0);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('Cash Pay Slips', 105, 12, { align: 'center' });
+
+      const m = 10, sy = 20;
+      const cw = (210 - 2 * m) / 3;
+      const rh = (297 - sy - m) / 5;
+      const cashEmps = processedData.filter(r => r.cashHours > 0);
+
+      cashEmps.forEach((emp, i) => {
+        const col = i % 3, row = Math.floor(i / 3);
+        const x = m + col * cw, y = sy + row * rh;
+        const coins = calculateCoins(emp.cashPay);
+        const bills = emp.cashPay - coins;
+
+        doc.setDrawColor(220);
+        doc.rect(x, y, cw, rh);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text(emp.name, x + 3, y + 7);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.setTextColor(100);
+        doc.text(currentPeriod.substring(0, 30), x + 3, y + 12);
+
+        doc.setTextColor(0);
+        doc.setFontSize(7);
+        doc.text('Cash Hours:', x + 3, y + 19);
+        doc.text(emp.cashHours.toFixed(2), x + cw - 5, y + 19, { align: 'right' });
+
+        doc.setFont('helvetica', 'bold');
+        doc.text('Bills ($5+):', x + 3, y + 24);
+        doc.text(`$${bills.toFixed(2)}`, x + cw - 5, y + 24, { align: 'right' });
+
+        doc.setTextColor(37, 99, 235);
+        doc.text('Coins:', x + 3, y + 29);
+        doc.text(`$${coins.toFixed(2)}`, x + cw - 5, y + 29, { align: 'right' });
+
+        doc.setFillColor(240, 253, 244);
+        doc.rect(x + 2, y + 32, cw - 4, 8, 'F');
+        doc.setTextColor(0);
+        doc.setFontSize(9);
+        doc.text(`$${emp.cashPay.toFixed(2)}`, x + cw / 2, y + 38, { align: 'center' });
+      });
+
+      doc.save(`Payroll_${currentLocation}_${currentPeriod.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+      toast('PDF generated');
+    }
+
+    // ============================================================
+    // EXPORT / IMPORT
+    // ============================================================
+    function exportData() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `barburrito_payroll_backup_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('Backup exported');
+    }
+
+    function downloadFile(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    function init() {
+      const toggle = document.getElementById('location-toggle');
+      toggle.checked = currentLocation === 'milton';
+      document.getElementById('location-label').textContent = loc().label;
+      document.getElementById('location-name').textContent = loc().name;
+    }
+
+    init();
+  </script>
+</body>
+</html>
