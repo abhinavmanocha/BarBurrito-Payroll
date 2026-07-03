@@ -10,6 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
@@ -74,12 +75,11 @@
           <p class="text-sm text-gray-400 mt-0.5" id="location-label">Brampton, ON</p>
         </div>
         <div class="flex items-center gap-3">
-          <button onclick="exportData()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors" title="Export backup">Export</button>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="location-toggle" class="sr-only peer" onchange="switchLocation()">
-            <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gray-900"></div>
-          </label>
-          <span class="text-xs font-medium text-gray-500 min-w-[56px]" id="location-name">Brampton</span>
+          <button onclick="exportData()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors mr-2" title="Export backup">Export Data</button>
+          <div class="flex bg-gray-100 p-1 rounded-lg">
+            <button onclick="setLocation('brampton')" id="btn-loc-brampton" class="px-3 py-1.5 text-xs font-medium rounded-md transition-all">Brampton</button>
+            <button onclick="setLocation('milton')" id="btn-loc-milton" class="px-3 py-1.5 text-xs font-medium rounded-md transition-all">Milton</button>
+          </div>
         </div>
       </div>
 
@@ -154,22 +154,31 @@
       <div class="bg-white rounded-xl border border-gray-200 p-5">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-gray-900">Employee Master List</h3>
-          <span class="text-xs text-gray-400" id="total-employees">0 employees</span>
+          <div class="flex items-center gap-3">
+            <input id="emp-search" type="text" placeholder="Search employees..." class="text-xs border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0 w-40" oninput="renderEmployees()" />
+            <span class="text-xs text-gray-400" id="total-employees">0 employees</span>
+          </div>
         </div>
         <div class="flex gap-2 mb-4">
           <input id="new-name" type="text" placeholder="Name (e.g. Kaur, Gurleen)" class="flex-1 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
           <input id="new-hours" type="number" placeholder="SIN hrs" value="0" class="w-24 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
           <select id="new-company" class="w-48 text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0"></select>
+          <div class="flex items-center gap-2 px-3 border border-gray-200 rounded-lg">
+            <input id="new-foodhandler" type="checkbox" class="rounded border-gray-300 text-gray-900 focus:ring-0" />
+            <span class="text-xs text-gray-400 whitespace-nowrap">Food Handler</span>
+          </div>
           <button onclick="addEmployee()" class="px-3 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-black transition-colors whitespace-nowrap">+ Add</button>
         </div>
         <div id="employee-list" class="space-y-2 max-h-[480px] overflow-y-auto custom-scrollbar"></div>
       </div>
-      <div class="flex gap-2">
+      <div class="flex items-center gap-3">
+        <button onclick="saveAllEmployees()" class="px-5 py-2.5 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all shadow-sm">Save Master List</button>
         <button onclick="exportEmployees()" class="px-3 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Export CSV</button>
         <label class="px-3 py-2 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
           Import CSV
           <input type="file" accept=".csv" class="hidden" onchange="importEmployees(event)" />
         </label>
+        <button onclick="clearEmployees()" class="px-3 py-2 text-xs font-medium text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors ml-auto">Clear All</button>
       </div>
     </div>
 
@@ -212,14 +221,18 @@
     <div id="tab-settings" class="fade-in hidden space-y-5">
       <div class="bg-white rounded-xl border border-gray-200 p-5">
         <h3 class="text-sm font-semibold text-gray-900 mb-4">Pay Rates</h3>
-        <div class="grid grid-cols-2 gap-4 max-w-sm">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">SIN Rate ($/hr)</label>
             <input id="cfg-sin-rate" type="number" step="0.01" class="w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
           </div>
           <div>
-            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">Cash Rate ($/hr)</label>
-            <input id="cfg-cash-rate" type="number" step="0.01" class="w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
+            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">Cash Rate (No Cert) ($/hr)</label>
+            <input id="cfg-cash-rate-no" type="number" step="0.01" class="w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">Cash Rate (With Cert) ($/hr)</label>
+            <input id="cfg-cash-rate-with" type="number" step="0.01" class="w-full text-sm border-gray-200 rounded-lg focus:border-gray-400 focus:ring-0" />
           </div>
         </div>
       </div>
@@ -260,31 +273,31 @@
     const LOCATIONS = {
       brampton: {
         label: 'Brampton, ON', name: 'Brampton',
-        sinRate: 17.55, cashRate: 12.00,
+        sinRate: 17.60, cashRateNoCert: 11.50, cashRateWithCert: 12.00,
         companies: ['2619959 Ontario Inc.', 'Ganpati Int.'],
         emailTo: 'Pirthpal Ji', emailFrom: 'Abhinav Manocha', locationLabel: 'Quarry Edge',
         employees: {
-          'Aneja, Madhur':    { hours: 70, group: '2619959 Ontario Inc.' },
-          'Arora, Kashish':   { hours: 60, group: '2619959 Ontario Inc.' },
-          'Kaur, Gurkirat':   { hours: 40, group: 'Ganpati Int.' },
-          'Kaur, Prabhjeet':  { hours: 30, group: '2619959 Ontario Inc.' },
-          'Kaur, Savreet':    { hours: 40, group: 'Ganpati Int.' },
-          'Patel, Harisha':   { hours: 0,  group: '2619959 Ontario Inc.' },
-          'Shah, Priyal':     { hours: 50, group: '2619959 Ontario Inc.' },
-          'Sharma, Aastha':   { hours: 60, group: 'Ganpati Int.' },
+          'Aneja, Madhur':    { hours: 70, group: '2619959 Ontario Inc.', foodHandler: true },
+          'Arora, Kashish':   { hours: 60, group: '2619959 Ontario Inc.', foodHandler: true },
+          'Kaur, Gurkirat':   { hours: 40, group: 'Ganpati Int.', foodHandler: false },
+          'Kaur, Prabhjeet':  { hours: 30, group: '2619959 Ontario Inc.', foodHandler: true },
+          'Kaur, Savreet':    { hours: 40, group: 'Ganpati Int.', foodHandler: false },
+          'Patel, Harisha':   { hours: 0,  group: '2619959 Ontario Inc.', foodHandler: false },
+          'Shah, Priyal':     { hours: 50, group: '2619959 Ontario Inc.', foodHandler: true },
+          'Sharma, Aastha':   { hours: 60, group: 'Ganpati Int.', foodHandler: false },
         }
       },
       milton: {
         label: 'Milton, ON', name: 'Milton',
-        sinRate: 17.60, cashRate: 12.00,
+        sinRate: 17.60, cashRateNoCert: 11.50, cashRateWithCert: 12.00,
         companies: ['2619959 Ontario Inc.'],
         emailTo: '', emailFrom: 'Abhinav Manocha', locationLabel: 'Milton',
         employees: {
-          'Kaur, Baldish':    { hours: 60, group: '2619959 Ontario Inc.' },
-          'Kaur, Gurleen':    { hours: 61, group: '2619959 Ontario Inc.' },
-          'Kaur, Harjot':     { hours: 30, group: '2619959 Ontario Inc.' },
-          'Sidhu, Komaljot':  { hours: 40, group: '2619959 Ontario Inc.' },
-          'Singh, Hartej':    { hours: 61, group: '2619959 Ontario Inc.' },
+          'Kaur, Baldish':    { hours: 60, group: '2619959 Ontario Inc.', foodHandler: false },
+          'Kaur, Gurleen':    { hours: 61, group: '2619959 Ontario Inc.', foodHandler: true },
+          'Kaur, Harjot':     { hours: 30, group: '2619959 Ontario Inc.', foodHandler: false },
+          'Sidhu, Komaljot':  { hours: 40, group: '2619959 Ontario Inc.', foodHandler: true },
+          'Singh, Hartej':    { hours: 61, group: '2619959 Ontario Inc.', foodHandler: true },
         }
       }
     };
@@ -322,11 +335,22 @@
       if (tab === 'settings') renderSettings();
     }
 
-    function switchLocation() {
-      const toggle = document.getElementById('location-toggle');
-      currentLocation = toggle.checked ? 'milton' : 'brampton';
+    function setLocation(locKey) {
+      currentLocation = locKey;
       document.getElementById('location-label').textContent = loc().label;
-      document.getElementById('location-name').textContent = loc().name;
+      
+      // Update toggle buttons
+      const btnBrampton = document.getElementById('btn-loc-brampton');
+      const btnMilton = document.getElementById('btn-loc-milton');
+      
+      if (currentLocation === 'brampton') {
+        btnBrampton.className = 'px-3 py-1.5 text-xs font-medium rounded-md bg-white text-gray-900 shadow-sm';
+        btnMilton.className = 'px-3 py-1.5 text-xs font-medium rounded-md text-gray-500 hover:text-gray-700';
+      } else {
+        btnMilton.className = 'px-3 py-1.5 text-xs font-medium rounded-md bg-white text-gray-900 shadow-sm';
+        btnBrampton.className = 'px-3 py-1.5 text-xs font-medium rounded-md text-gray-500 hover:text-gray-700';
+      }
+
       processedData = []; currentPeriod = '';
       resetPayrollUI();
       saveState();
@@ -367,7 +391,12 @@
       const list = document.getElementById('employee-list');
       const companies = loc().companies;
       const employees = loc().employees;
-      const keys = Object.keys(employees).sort();
+      const search = document.getElementById('emp-search')?.value.toLowerCase() || '';
+      
+      const keys = Object.keys(employees)
+        .filter(name => name.toLowerCase().includes(search))
+        .sort();
+        
       document.getElementById('total-employees').textContent = `${keys.length} employees`;
       document.getElementById('new-company').innerHTML = companies.map(c => `<option value="${c}">${c}</option>`).join('');
       list.innerHTML = '';
@@ -379,36 +408,65 @@
           <div class="flex-1 min-w-0"><input type="text" value="${name}" data-original="${name}" class="w-full text-sm font-medium text-gray-900 bg-transparent border-0 p-0 focus:ring-0 focus:outline-none emp-name" /></div>
           <input type="number" value="${data.hours}" class="w-20 text-sm text-right bg-transparent border-0 p-0 focus:ring-0 focus:outline-none emp-hours" title="SIN limit" />
           <select class="text-sm bg-transparent border-0 p-0 focus:ring-0 focus:outline-none text-gray-500 emp-group">${companies.map(c => `<option value="${c}" ${data.group === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
+          <div class="flex items-center gap-2 px-2">
+            <input type="checkbox" ${data.foodHandler ? 'checked' : ''} class="rounded border-gray-300 text-gray-900 focus:ring-0 emp-handler" title="Food Handler Cert" />
+            <span class="text-[10px] text-gray-400 uppercase">Cert</span>
+          </div>
           <button onclick="removeEmployee('${name}')" class="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 ml-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
         list.appendChild(div);
       });
-      list.querySelectorAll('.emp-name, .emp-hours, .emp-group').forEach(input => {
-        input.addEventListener('blur', () => {
+      list.querySelectorAll('.emp-name, .emp-hours, .emp-group, .emp-handler').forEach(input => {
+        input.addEventListener('change', () => {
           const row = input.closest('.flex');
-          const origName = row.querySelector('.emp-name').dataset.original;
-          const newName = row.querySelector('.emp-name').value.trim();
-          const hours = parseFloat(row.querySelector('.emp-hours').value) || 0;
-          const group = row.querySelector('.emp-group').value;
-          if (!newName) return;
-          if (newName !== origName) delete loc().employees[origName];
-          loc().employees[newName] = { hours, group };
-          saveState(); renderEmployees();
+          row.classList.add('ring-1', 'ring-amber-200', 'bg-amber-50');
         });
       });
     }
+
+    function saveAllEmployees() {
+      const list = document.getElementById('employee-list');
+      const newEmployees = {};
+      
+      list.querySelectorAll('.group').forEach(row => {
+        const nameInput = row.querySelector('.emp-name');
+        const origName = nameInput.dataset.original;
+        const newName = nameInput.value.trim();
+        const hours = parseFloat(row.querySelector('.emp-hours').value) || 0;
+        const group = row.querySelector('.emp-group').value;
+        const foodHandler = row.querySelector('.emp-handler').checked;
+        
+        if (newName) {
+          newEmployees[newName] = { hours, group, foodHandler };
+        }
+      });
+      
+      loc().employees = newEmployees;
+      saveState();
+      renderEmployees();
+      toast('Master list saved');
+    }
+
     function addEmployee() {
       const name = document.getElementById('new-name').value.trim();
       const hours = parseFloat(document.getElementById('new-hours').value) || 0;
       const group = document.getElementById('new-company').value;
+      const foodHandler = document.getElementById('new-foodhandler').checked;
       if (!name) { toast('Enter a name', 'error'); return; }
-      loc().employees[name] = { hours, group }; saveState();
-      document.getElementById('new-name').value = ''; document.getElementById('new-hours').value = '0';
+      loc().employees[name] = { hours, group, foodHandler }; saveState();
+      document.getElementById('new-name').value = ''; 
+      document.getElementById('new-hours').value = '0';
+      document.getElementById('new-foodhandler').checked = false;
       renderEmployees(); toast(`${name} added`);
     }
     function removeEmployee(name) { delete loc().employees[name]; saveState(); renderEmployees(); }
+    function clearEmployees() {
+      if (confirm('Are you sure you want to delete all employees for this location?')) {
+        loc().employees = {}; saveState(); renderEmployees(); toast('Employee list cleared');
+      }
+    }
     function exportEmployees() {
-      const rows = [['Name','SIN Hours','Company']];
-      Object.entries(loc().employees).forEach(([n, d]) => rows.push([n, d.hours, d.group]));
+      const rows = [['Name','SIN Hours','Company','Food Handler']];
+      Object.entries(loc().employees).forEach(([n, d]) => rows.push([n, d.hours, d.group, d.foodHandler ? 'Yes' : 'No']));
       downloadFile(rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n'), `employees_${currentLocation}.csv`, 'text/csv');
       toast('Exported');
     }
@@ -419,7 +477,14 @@
         const lines = e.target.result.split('\n').filter(l => l.trim()); let count = 0;
         lines.slice(1).forEach(line => {
           const parts = line.split(',').map(s => s.replace(/"/g, '').trim());
-          if (parts[0] && parts[1]) { loc().employees[parts[0]] = { hours: parseInt(parts[1]) || 0, group: parts[2] || loc().companies[0] }; count++; }
+          if (parts[0]) { 
+            loc().employees[parts[0]] = { 
+              hours: parseInt(parts[1]) || 0, 
+              group: parts[2] || loc().companies[0],
+              foodHandler: parts[3]?.toLowerCase() === 'yes' || parts[3] === 'true'
+            }; 
+            count++; 
+          }
         });
         saveState(); renderEmployees(); toast(`Imported ${count} employees`);
       };
@@ -432,7 +497,8 @@
     function renderSettings() {
       const l = loc();
       document.getElementById('cfg-sin-rate').value = l.sinRate;
-      document.getElementById('cfg-cash-rate').value = l.cashRate;
+      document.getElementById('cfg-cash-rate-no').value = l.cashRateNoCert;
+      document.getElementById('cfg-cash-rate-with').value = l.cashRateWithCert;
       document.getElementById('cfg-email-to').value = l.emailTo;
       document.getElementById('cfg-email-from').value = l.emailFrom;
       document.getElementById('cfg-location-label').value = l.locationLabel;
@@ -454,7 +520,8 @@
     function saveSettings() {
       const l = loc();
       l.sinRate = parseFloat(document.getElementById('cfg-sin-rate').value) || l.sinRate;
-      l.cashRate = parseFloat(document.getElementById('cfg-cash-rate').value) || l.cashRate;
+      l.cashRateNoCert = parseFloat(document.getElementById('cfg-cash-rate-no').value) || l.cashRateNoCert;
+      l.cashRateWithCert = parseFloat(document.getElementById('cfg-cash-rate-with').value) || l.cashRateWithCert;
       l.emailTo = document.getElementById('cfg-email-to').value;
       l.emailFrom = document.getElementById('cfg-email-from').value;
       l.locationLabel = document.getElementById('cfg-location-label').value;
@@ -489,12 +556,26 @@
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const raw = XLSX.utils.sheet_to_json(sheet, { header: 1 });
           currentPeriod = raw[1]?.[0] || 'Unknown Period';
-          const headers = raw[3] || [];
-          const nameIdx = headers.findIndex(h => h?.toLowerCase().includes('name'));
-          const hoursIdx = headers.findIndex(h => h?.toLowerCase().includes('total hours'));
-          if (nameIdx === -1 || hoursIdx === -1) throw new Error('Could not find Name/Total Hours columns in row 4.');
+          
+          let headers = [];
+          let nameIdx = -1;
+          let hoursIdx = -1;
+          let startRow = -1;
+
+          // Search first 10 rows for headers
+          for (let i = 0; i < Math.min(10, raw.length); i++) {
+            const row = raw[i] || [];
+            const ni = row.findIndex(h => h?.toString().toLowerCase().includes('name'));
+            const hi = row.findIndex(h => h?.toString().toLowerCase().includes('total hours'));
+            if (ni !== -1 && hi !== -1) {
+              headers = row; nameIdx = ni; hoursIdx = hi; startRow = i + 1; break;
+            }
+          }
+
+          if (nameIdx === -1 || hoursIdx === -1) throw new Error('Could not find "Name" and "Total Hours" columns in the first 10 rows.');
+
           processedData = [];
-          for (let i = 4; i < raw.length; i++) {
+          for (let i = startRow; i < raw.length; i++) {
             const row = raw[i];
             const rawName = row[nameIdx]?.toString().trim();
             if (!rawName || rawName === 'Total' || rawName.toLowerCase() === 'all') continue;
@@ -503,9 +584,21 @@
             const empConf = getEmployeeConfig(rawName);
             const limit = empConf ? empConf.hours : 0;
             const group = empConf ? empConf.group : loc().companies[0];
+            const hasCert = empConf ? empConf.foodHandler : false;
+            const cashRate = hasCert ? loc().cashRateWithCert : loc().cashRateNoCert;
+            
             const sinHours = Math.min(hours, limit);
             const cashHours = Math.max(0, hours - limit);
-            processedData.push({ name: rawName, hours, sinHours, cashHours, sinPay: sinHours * loc().sinRate, cashPay: cashHours * loc().cashRate, isMissing: !empConf, group });
+            processedData.push({ 
+              name: rawName, 
+              hours, 
+              sinHours, 
+              cashHours, 
+              sinPay: sinHours * loc().sinRate, 
+              cashPay: cashHours * cashRate, 
+              isMissing: !empConf, 
+              group 
+            });
           }
           if (!processedData.length) throw new Error('No employee data found.');
           renderPreview();
@@ -667,7 +760,7 @@
       const lines = text.split(/\s{2,}/).map(s => s.trim()).filter(Boolean);
       let company = 'Unknown Company', employee = 'Unknown Employee', payPeriod = 'unknown_period';
 
-      // Company
+      // Company - look for common patterns or first non-numeric line
       const companyPatterns = [
         /^([A-Z][A-Z\s.,\-]+(?:INC\.?|LTD\.?|LIMITED|INCORPORATED|CORP\.?|CORPORATION)\.?)$/i,
         /^(\d+\s+[A-Z][A-Z\s]+(?:INC\.?|LTD\.?|LIMITED|INCORPORATED|CORP\.?|CORPORATION)\.?)$/i,
@@ -681,27 +774,35 @@
       }
       if (company === 'Unknown Company' && lines.length && !/^\d/.test(lines[0])) company = lines[0];
 
-      // Employee
-      for (let i = 2; i < Math.min(6, lines.length); i++) {
-        if (/^[A-Z][A-Z\s.'-]+$/.test(lines[i]) && !/^\d/.test(lines[i]) && lines[i].length > 3 && lines[i] !== 'Employee Paystub' && lines[i] !== company) {
-          employee = lines[i]; break;
-        }
-      }
-      if (employee === 'Unknown Employee') {
-        for (let i = 0; i < lines.length; i++) {
-          if (lines[i] === 'Employee' && i + 1 < lines.length) { employee = lines[i + 1].split(',')[0].trim(); break; }
+      // Employee - look for "Employee" keyword or standard name patterns
+      const empIdx = lines.findIndex(l => l.toLowerCase() === 'employee' || l.toLowerCase() === 'name');
+      if (empIdx !== -1 && empIdx + 1 < lines.length) {
+        employee = lines[empIdx + 1].split(',')[0].trim();
+      } else {
+        // Fallback: look for uppercase names in the header area
+        for (let i = 1; i < Math.min(8, lines.length); i++) {
+          if (/^[A-Z][A-Z\s.'-]+$/.test(lines[i]) && !/^\d/.test(lines[i]) && lines[i].length > 3 && 
+              !/Paystub|Statement|Earnings|Payroll|BarBurrito/i.test(lines[i]) && lines[i] !== company) {
+            employee = lines[i]; break;
+          }
         }
       }
 
-      // Pay period
-      let m = text.match(/Pay\s*Period:\s*(\d{4}-\d{2}-\d{2})\s*[-–]\s*(\d{4}-\d{2}-\d{2})/);
-      if (m) payPeriod = `${m[1]}_to_${m[2]}`;
-      else {
+      // Pay period - handle multiple date formats
+      let m = text.match(/Pay\s*Period:\s*(\d{4}-\d{2}-\d{2})\s*[-–]\s*(\d{4}-\d{2}-\d{2})/i) ||
+              text.match(/Period\s*Ending:\s*(\d{4}-\d{2}-\d{2})/i) ||
+              text.match(/(\d{4}-\d{2}-\d{2})\s*to\s*(\d{4}-\d{2}-\d{2})/i);
+      
+      if (m) {
+        payPeriod = m[2] ? `${m[1]}_to_${m[2]}` : m[1];
+      } else {
+        // Try month-day-year format
         m = text.match(/Pay\s*Period:\s*(\w+\s+\d{1,2},\s*\d{4})\s*[-–]\s*(\w+\s+\d{1,2},\s*\d{4})/i);
         if (m) {
           try {
             const s = new Date(m[1]), e = new Date(m[2]);
-            payPeriod = `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,'0')}-${String(s.getDate()).padStart(2,'0')}_to_${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}`;
+            const f = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            payPeriod = `${f(s)}_to_${f(e)}`;
           } catch(ex) {}
         }
       }
@@ -785,10 +886,10 @@
       else { preview.classList.add('hidden'); btn.textContent = 'Preview'; }
     }
 
-    function splitterRescan() {
-      // Re-extract from stored buffers
+    async function splitterRescan() {
       splitterPages = [];
-      splitterFiles.forEach(async (f, fi) => {
+      for (let fi = 0; fi < splitterFiles.length; fi++) {
+        const f = splitterFiles[fi];
         const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(f.arrayBuffer) }).promise;
         for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
@@ -802,8 +903,8 @@
             textPreview: text.substring(0, 500)
           });
         }
-        if (fi === splitterFiles.length - 1) splitterRender();
-      });
+      }
+      splitterRender();
       toast('Re-scanned', 'info');
     }
 
@@ -818,15 +919,11 @@
     async function splitterDownloadAll() {
       if (!splitterPages.length) return;
       const btn = document.getElementById('btn-split-all');
-      btn.disabled = true; btn.textContent = 'Building...';
+      const originalText = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Building ZIP...';
 
       try {
-        const zip = await PDFLib.PDFDocument.create();
-        // pdf-lib doesn't have zip support, so we'll download individually or use a trick
-        // Actually let's use JSZip approach - but to avoid another CDN, download each individually
-        // Better: use the browser's ability to create a zip via a simple approach
-
-        // We'll download each file individually in sequence (simpler, no extra deps)
+        const zip = new JSZip();
         for (const p of splitterPages) {
           const srcBuf = splitterFiles[p.fileIdx].arrayBuffer;
           const srcDoc = await PDFDocument.load(srcBuf);
@@ -834,19 +931,20 @@
           const [copiedPage] = await newDoc.copyPages(srcDoc, [p.pageNum - 1]);
           newDoc.addPage(copiedPage);
           const pdfBytes = await newDoc.save();
-          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = p.filename; a.click();
-          URL.revokeObjectURL(url);
-          // Small delay between downloads
-          await new Promise(r => setTimeout(r, 200));
+          zip.file(p.filename, pdfBytes);
         }
-        toast(`Downloaded ${splitterPages.length} files`);
+        const content = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Payslips_${currentLocation}_${new Date().toISOString().slice(0,10)}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast(`ZIP created with ${splitterPages.length} files`);
       } catch (err) {
         toast('Error: ' + err.message, 'error');
       }
-      btn.disabled = false; btn.textContent = 'Download All as ZIP';
+      btn.disabled = false; btn.textContent = originalText;
     }
 
     function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
@@ -905,10 +1003,7 @@
     // INIT
     // ============================================================
     function init() {
-      const toggle = document.getElementById('location-toggle');
-      toggle.checked = currentLocation === 'milton';
-      document.getElementById('location-label').textContent = loc().label;
-      document.getElementById('location-name').textContent = loc().name;
+      setLocation(currentLocation);
     }
     init();
   </script>
